@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Apollo's life</title>
+  <link rel="stylesheet" href="https://s3.ap-northeast-2.amazonaws.com/materials.spartacodingclub.kr/easygpt/default.css">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4"
+    crossorigin="anonymous"></script>
+  <style>
+    body {
+      background-color: #f8f9fa;
+    }
+    .hero {
+      height: 300px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="hero d-flex align-items-center justify-content-center" style="background-color: #333333;">
+    <div class="container text-center">
+      <h1 class="display-4 text-light">Apollo's life</h1>
+    </div>
+  </div>
+
+  <div class="container my-5">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <button class="btn btn-primary" id="uploadButton">사진 등록</button>
+      <div>
+        <select class="form-select" id="sortSelect" style="width: auto;">
+          <option value="createdAt">촬영일 순</option>
+          <option value="uploadedAt">업로드 순</option>
+          <option value="views">가장 많이 본</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row row-cols-5 g-3" id="gallery">
+    </div>
+
+    <div class="text-center mt-4">
+      <button id="loadMore" class="btn btn-secondary">더 보기</button>
+    </div>
+  </div>
+
+  <input type="file" id="fileInput" accept="image/*,video/*" multiple style="display: none;">
+
+  <script>
+    const gallery = document.getElementById('gallery');
+    const loadMoreBtn = document.getElementById('loadMore');
+    const uploadButton = document.getElementById('uploadButton');
+    const fileInput = document.getElementById('fileInput');
+    const sortSelect = document.getElementById('sortSelect');
+
+    let allPhotos = [];
+    let currentPage = 0;
+    const itemsPerPage = 25;
+
+    async function fetchPhotos() {
+      const res = await fetch('https://raw.githubusercontent.com/younghoe/apollo-gallery/main/photos.json');
+      const data = await res.json();
+      allPhotos = data;
+      renderPhotos();
+    }
+
+    function renderPhotos() {
+      const start = currentPage * itemsPerPage;
+      const end = start + itemsPerPage;
+      const items = allPhotos.slice(start, end);
+
+      items.forEach(item => {
+        const col = document.createElement('div');
+        col.className = 'col';
+
+        if (item.type === 'photo') {
+          col.innerHTML = `<img src="${item.url}" class="img-fluid rounded">`;
+        } else {
+          col.innerHTML = `
+            <video class="img-fluid rounded" controls>
+              <source src="${item.url}" type="video/mp4">
+              Your browser does not support the video tag.
+            </video>
+          `;
+        }
+        gallery.appendChild(col);
+      });
+
+      currentPage++;
+      if (currentPage * itemsPerPage >= allPhotos.length) {
+        loadMoreBtn.style.display = 'none';
+      }
+    }
+
+    loadMoreBtn.addEventListener('click', renderPhotos);
+
+    uploadButton.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (event) => {
+      const files = Array.from(event.target.files);
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const url = e.target.result;
+          const type = file.type.startsWith('video') ? 'video' : 'photo';
+          allPhotos.unshift({
+            type: type,
+            url: url,
+            createdAt: new Date().toISOString(),
+            uploadedAt: new Date().toISOString(),
+            views: 0
+          });
+          gallery.innerHTML = '';
+          currentPage = 0;
+          renderPhotos();
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    sortSelect.addEventListener('change', () => {
+      const sortBy = sortSelect.value;
+      allPhotos.sort((a, b) => {
+        if (sortBy === 'views') return b.views - a.views;
+        return new Date(b[sortBy]) - new Date(a[sortBy]);
+      });
+      gallery.innerHTML = '';
+      currentPage = 0;
+      renderPhotos();
+    });
+
+    fetchPhotos();
+  </script>
+</body>
+
+</html>
