@@ -21,12 +21,11 @@
   <!-- Supabase UMD (defer) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@1.35.6/dist/umd/supabase.min.js" defer></script>
 
-  <!-- Custom Script (defer) -->
+  <!-- Custom Script -->
   <script defer>
     document.addEventListener('DOMContentLoaded', async () => {
       const supabaseUrl = "https://ksiyvpbrwkqdnsmthigq.supabase.co";
       const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtzaXl2cGJyd2txZG5zbXRoaWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU3MzU1MjcsImV4cCI6MjA2MTMxMTUyN30.UwkIMptv0BuGMpBCl2B0WareRJoBa5NNTxBcTNgR3wE";
-
       const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
       const uploadButton = document.getElementById('uploadButton');
@@ -39,10 +38,10 @@
       const editButton = document.getElementById('editButton');
 
       let currentFilePath = null;
-      let offset = 0;
-      const limit = 8;
       let loading = false;
       let endReached = false;
+      let offset = 0;
+      const limit = 8;
 
       function randomFileName(originalName) {
         const ext = originalName.split('.').pop();
@@ -66,7 +65,6 @@
         }
         offset = 0;
         gallery.innerHTML = '';
-        endReached = false;
         loadGallery();
         fileInput.value = '';
       });
@@ -77,6 +75,7 @@
         scrollLoading.style.display = 'block';
 
         const { data, error } = await supabaseClient.storage.from('apollo-gallery').list('uploads', { limit, offset });
+
         if (error) {
           console.error(error);
           scrollLoading.style.display = 'none';
@@ -85,30 +84,30 @@
 
         if (!data || data.length === 0) {
           endReached = true;
-          loading = false;
           scrollLoading.style.display = 'none';
           return;
         }
 
         for (const item of data) {
-          const { publicURL } = supabaseClient.storage.from('apollo-gallery').getPublicUrl(`uploads/${item.name}`);
-
+          const { data: { publicUrl } } = supabaseClient.storage.from('apollo-gallery').getPublicUrl(`uploads/${item.name}`);
           const col = document.createElement('div');
           col.className = 'col';
 
           if (item.name.match(/\.(jpg|jpeg|png|gif)$/i)) {
-            col.innerHTML = `<img src="${publicURL}" class="img-fluid rounded shadow-sm" data-path="${item.name}">`;
+            col.innerHTML = `<img src="${publicUrl}" class="img-fluid rounded shadow-sm" data-path="${item.name}">`;
           } else if (item.name.match(/\.(mp4|mov|webm)$/i)) {
             col.innerHTML = `<video class="img-fluid rounded shadow-sm" controls data-path="${item.name}">
-                                <source src="${publicURL}">
+                                <source src="${publicUrl}">
                               </video>`;
           }
-
           gallery.appendChild(col);
 
-          col.querySelector('img, video').addEventListener('click', () => {
-            openModal(publicURL, item.name);
-          });
+          const media = col.querySelector('img, video');
+          if (media) {
+            media.addEventListener('click', () => {
+              openModal(publicUrl, item.name);
+            });
+          }
         }
 
         offset += limit;
@@ -138,7 +137,6 @@
             mediaModal.hide();
             offset = 0;
             gallery.innerHTML = '';
-            endReached = false;
             loadGallery();
             alert('Deleted successfully!');
           }
@@ -158,7 +156,6 @@
             mediaModal.hide();
             offset = 0;
             gallery.innerHTML = '';
-            endReached = false;
             loadGallery();
             alert('Edited successfully!');
           }
@@ -175,9 +172,11 @@
       loadGallery();
     });
   </script>
+
 </head>
 
 <body class="bg-light">
+
   <div class="container my-5">
     <h1 class="text-center mb-4">Apollo’s Storybook</h1>
 
@@ -207,6 +206,7 @@
     </div>
 
   </div>
+
 </body>
 
 </html>
