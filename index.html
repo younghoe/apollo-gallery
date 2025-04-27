@@ -18,15 +18,14 @@
   <!-- Bootstrap Bundle JS (defer) -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" defer></script>
 
-  <!-- Supabase 브라우저용 UMD 버전 (defer) -->
+  <!-- Supabase UMD for browser (defer) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@1.35.6/dist/umd/supabase.min.js" defer></script>
 
-  <!-- 내 custom 코드 (defer) -->
+  <!-- Custom Script -->
   <script defer>
     document.addEventListener('DOMContentLoaded', async () => {
       const supabaseUrl = "https://ksiyvpbrwkqdnsmthigq.supabase.co";
       const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtzaXl2cGJyd2txZG5zbXRoaWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU3MzU1MjcsImV4cCI6MjA2MTMxMTUyN30.UwkIMptv0BuGMpBCl2B0WareRJoBa5NNTxBcTNgR3wE";
-
       const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
       const uploadButton = document.getElementById('uploadButton');
@@ -39,8 +38,6 @@
       const editButton = document.getElementById('editButton');
 
       let currentFilePath = null;
-      let offset = 0;
-      const limit = 8;
       let loading = false;
       let endReached = false;
 
@@ -64,7 +61,6 @@
             alert('Upload failed!');
           }
         }
-        offset = 0;
         gallery.innerHTML = '';
         loadGallery();
         fileInput.value = '';
@@ -75,15 +71,15 @@
         loading = true;
         scrollLoading.style.display = 'block';
 
-        const { data, error } = await supabaseClient.storage.from('apollo-gallery').list('uploads', { limit, offset });
+        const { data, error } = await supabaseClient.storage.from('apollo-gallery').list('uploads');
         if (error) {
           console.error(error);
           return;
         }
-        if (data.length < limit) endReached = true;
 
         for (const item of data) {
-          const { publicURL } = supabaseClient.storage.from('apollo-gallery').getPublicUrl(`uploads/${item.name}`);
+          const { data: urlData } = supabaseClient.storage.from('apollo-gallery').getPublicUrl(`uploads/${item.name}`);
+          const publicURL = urlData.publicUrl;
 
           const col = document.createElement('div');
           col.className = 'col';
@@ -101,7 +97,6 @@
           });
         }
 
-        offset += limit;
         loading = false;
         scrollLoading.style.display = 'none';
       }
@@ -126,7 +121,6 @@
             alert('Delete failed!');
           } else {
             mediaModal.hide();
-            offset = 0;
             gallery.innerHTML = '';
             loadGallery();
             alert('Deleted successfully!');
@@ -145,7 +139,6 @@
             const randomName = randomFileName(file.name);
             await supabaseClient.storage.from('apollo-gallery').upload(`uploads/${randomName}`, file);
             mediaModal.hide();
-            offset = 0;
             gallery.innerHTML = '';
             loadGallery();
             alert('Edited successfully!');
@@ -154,15 +147,10 @@
         newInput.click();
       });
 
-      window.addEventListener('scroll', () => {
-        if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100) {
-          loadGallery();
-        }
-      });
-
       loadGallery();
     });
   </script>
+
 </head>
 
 <body class="bg-light">
