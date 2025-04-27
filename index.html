@@ -18,16 +18,16 @@
   <!-- Bootstrap Bundle JS (defer) -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" defer></script>
 
-  <!-- Supabase 1.35.6 JS (defer) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@1.35.6/dist/supabase.min.js" defer></script>
+  <!-- Supabase 브라우저용 UMD 버전 (defer) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@1.35.6/dist/umd/supabase.min.js" defer></script>
 
-  <!-- 내 custom JS (defer) -->
+  <!-- 내 custom 코드 (defer) -->
   <script defer>
     document.addEventListener('DOMContentLoaded', async () => {
       const supabaseUrl = "https://ksiyvpbrwkqdnsmthigq.supabase.co";
       const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtzaXl2cGJyd2txZG5zbXRoaWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU3MzU1MjcsImV4cCI6MjA2MTMxMTUyN30.UwkIMptv0BuGMpBCl2B0WareRJoBa5NNTxBcTNgR3wE";
 
-      const supa = supabase.createClient(supabaseUrl, supabaseKey);
+      const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
       const uploadButton = document.getElementById('uploadButton');
       const fileInput = document.getElementById('fileInput');
@@ -58,7 +58,7 @@
         const files = Array.from(event.target.files);
         for (const file of files) {
           const randomName = randomFileName(file.name);
-          const { error } = await supa.storage.from('gallery').upload(`uploads/${randomName}`, file);
+          const { error } = await supabaseClient.storage.from('gallery').upload(`uploads/${randomName}`, file);
           if (error) {
             console.error(error);
             alert('Upload failed!');
@@ -75,7 +75,7 @@
         loading = true;
         scrollLoading.style.display = 'block';
 
-        const { data, error } = await supa.storage.from('gallery').list('uploads', { limit, offset });
+        const { data, error } = await supabaseClient.storage.from('gallery').list('uploads', { limit, offset });
         if (error) {
           console.error(error);
           return;
@@ -83,7 +83,7 @@
         if (data.length < limit) endReached = true;
 
         for (const item of data) {
-          const { publicURL } = supa.storage.from('gallery').getPublicUrl(`uploads/${item.name}`);
+          const { publicURL } = supabaseClient.storage.from('gallery').getPublicUrl(`uploads/${item.name}`);
 
           const col = document.createElement('div');
           col.className = 'col';
@@ -120,7 +120,7 @@
 
       deleteButton.addEventListener('click', async () => {
         if (currentFilePath) {
-          const { error } = await supa.storage.from('gallery').remove([`uploads/${currentFilePath}`]);
+          const { error } = await supabaseClient.storage.from('gallery').remove([`uploads/${currentFilePath}`]);
           if (error) {
             console.error(error);
             alert('Delete failed!');
@@ -141,9 +141,9 @@
         newInput.onchange = async (event) => {
           const file = event.target.files[0];
           if (file) {
-            await supa.storage.from('gallery').remove([`uploads/${currentFilePath}`]);
+            await supabaseClient.storage.from('gallery').remove([`uploads/${currentFilePath}`]);
             const randomName = randomFileName(file.name);
-            await supa.storage.from('gallery').upload(`uploads/${randomName}`, file);
+            await supabaseClient.storage.from('gallery').upload(`uploads/${randomName}`, file);
             mediaModal.hide();
             offset = 0;
             gallery.innerHTML = '';
@@ -163,7 +163,6 @@
       loadGallery();
     });
   </script>
-
 </head>
 
 <body class="bg-light">
