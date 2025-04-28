@@ -89,22 +89,25 @@
         }
 
         for (const item of data) {
-          const { data: urlData } = supabaseClient.storage.from('apollo-gallery').getPublicUrl(`uploads/${item.name}`);
-          const publicUrl = urlData.publicUrl;
+          const { publicURL, error: urlError } = supabaseClient.storage.from('apollo-gallery').getPublicUrl(`uploads/${item.name}`);
+          if (urlError) {
+            console.error('Public URL 생성 오류:', urlError.message);
+            continue;
+          }
 
           const col = document.createElement('div');
           col.className = 'col';
           if (item.name.match(/\.(jpg|jpeg|png|gif)$/i)) {
-            col.innerHTML = `<img src="${publicUrl}" class="img-fluid rounded shadow-sm" data-path="${item.name}">`;
+            col.innerHTML = `<img src="${publicURL}" class="img-fluid rounded shadow-sm" data-path="${item.name}">`;
           } else if (item.name.match(/\.(mp4|mov|webm)$/i)) {
-            col.innerHTML = `<video class="img-fluid rounded shadow-sm" controls data-path="${item.name}"><source src="${publicUrl}"></video>`;
+            col.innerHTML = `<video class="img-fluid rounded shadow-sm" controls data-path="${item.name}"><source src="${publicURL}"></video>`;
           }
           gallery.appendChild(col);
 
           const media = col.querySelector('img, video');
           if (media) {
             media.addEventListener('click', () => {
-              openModal(publicUrl, item.name);
+              openModal(publicURL, item.name);
             });
           }
         }
