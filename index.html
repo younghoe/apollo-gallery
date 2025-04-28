@@ -13,7 +13,6 @@
     #gallery {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      grid-auto-rows: 150px;
       gap: 16px;
     }
     .media-item {
@@ -25,8 +24,7 @@
     }
     .media-item img, .media-item video {
       width: 100%;
-      height: 100%;
-      object-fit: cover;
+      height: auto;
       display: block;
       transition: transform 0.3s ease;
     }
@@ -62,7 +60,7 @@
       const modalBody = document.getElementById('modalBody');
       const deleteButton = document.getElementById('deleteButton');
       const editButton = document.getElementById('editButton');
-      const sortSelect = document.getElementById('sortSelect') || { value: 'captured', addEventListener: () => {} };
+      const sortSelect = document.getElementById('sortSelect');
 
       let currentFilePath = null;
       let mediaItems = [];
@@ -172,7 +170,7 @@
         newInput.click();
       });
 
-      sortSelect.addEventListener('change', renderGallery);
+      sortSelect?.addEventListener('change', renderGallery);
 
       loadGallery();
     });
