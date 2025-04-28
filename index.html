@@ -36,17 +36,21 @@
       const modalBody = document.getElementById('modalBody');
       const deleteButton = document.getElementById('deleteButton');
       const editButton = document.getElementById('editButton');
+      const sortSelect = document.getElementById('sortSelect');
 
       let currentFilePath = null;
-      let offset = 0;
-      const limit = 8;
+      let mediaItems = [];
       let loading = false;
-      let endReached = false;
 
-      function randomFileName(originalName) {
-        const ext = originalName.split('.').pop();
-        const randomStr = Math.random().toString(36).substring(2, 15);
-        return randomStr + '.' + ext;
+      function randomFileName() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        const h = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const s = String(now.getSeconds()).padStart(2, '0');
+        return `${y}${m}${d}_${h}${min}${s}`;
       }
 
       uploadButton.addEventListener('click', () => {
@@ -56,65 +60,64 @@
       fileInput.addEventListener('change', async (event) => {
         const files = Array.from(event.target.files);
         for (const file of files) {
-          const randomName = randomFileName(file.name);
+          const randomName = randomFileName() + '.' + file.name.split('.').pop();
           const { error } = await supabaseClient.storage.from('apollo-gallery').upload(`uploads/${randomName}`, file);
           if (error) {
             console.error(error);
             alert('Upload failed!');
           }
         }
-        offset = 0;
-        gallery.innerHTML = '';
-        loadGallery();
+        await loadGallery();
         fileInput.value = '';
       });
 
       async function loadGallery() {
-        if (loading || endReached) return;
         loading = true;
         scrollLoading.style.display = 'block';
 
-        const { data, error } = await supabaseClient.storage.from('apollo-gallery').list('uploads', { limit, offset });
-
+        const { data, error } = await supabaseClient.storage.from('apollo-gallery').list('uploads', { sortBy: { column: 'name', order: 'asc' } });
         if (error) {
           console.error(error);
           scrollLoading.style.display = 'none';
           return;
         }
 
-        if (!data || data.length === 0) {
-          endReached = true;
-          scrollLoading.style.display = 'none';
-          return;
+        mediaItems = data.map(item => {
+          const { publicURL } = supabaseClient.storage.from('apollo-gallery').getPublicUrl(`uploads/${item.name}`);
+          return { name: item.name, url: publicURL, uploaded_at: item.created_at };
+        });
+
+        renderGallery();
+        loading = false;
+        scrollLoading.style.display = 'none';
+      }
+
+      function renderGallery() {
+        gallery.innerHTML = '';
+        const sortedItems = [...mediaItems];
+
+        const sortOption = sortSelect.value;
+        if (sortOption === 'captured') {
+          sortedItems.sort((a, b) => a.name.localeCompare(b.name));
+        } else {
+          sortedItems.sort((a, b) => new Date(a.uploaded_at) - new Date(b.uploaded_at));
         }
 
-        for (const item of data) {
-          const { publicURL, error: urlError } = supabaseClient.storage.from('apollo-gallery').getPublicUrl(`uploads/${item.name}`);
-          if (urlError) {
-            console.error('URL fetch failed:', urlError.message);
-            continue;
-          }
-
+        for (const item of sortedItems) {
           const col = document.createElement('div');
           col.className = 'col';
           if (item.name.match(/\.(jpg|jpeg|png|gif)$/i)) {
-            col.innerHTML = `<img src="${publicURL}" class="img-fluid rounded shadow-sm" data-path="${item.name}">`;
+            col.innerHTML = `<img src="${item.url}" class="img-fluid rounded shadow-sm" data-path="${item.name}">`;
           } else if (item.name.match(/\.(mp4|mov|webm)$/i)) {
-            col.innerHTML = `<video class="img-fluid rounded shadow-sm" controls data-path="${item.name}"><source src="${publicURL}"></video>`;
+            col.innerHTML = `<video class="img-fluid rounded shadow-sm" controls data-path="${item.name}"><source src="${item.url}"></video>`;
           }
           gallery.appendChild(col);
 
           const media = col.querySelector('img, video');
           if (media) {
-            media.addEventListener('click', () => {
-              openModal(publicURL, item.name);
-            });
+            media.addEventListener('click', () => openModal(item.url, item.name));
           }
         }
-
-        offset += limit;
-        loading = false;
-        scrollLoading.style.display = 'none';
       }
 
       function openModal(url, path) {
@@ -135,9 +138,7 @@
             alert('Delete failed!');
           } else {
             mediaModal.hide();
-            offset = 0;
-            gallery.innerHTML = '';
-            loadGallery();
+            await loadGallery();
             alert('Deleted successfully!');
           }
         }
@@ -151,17 +152,17 @@
           const file = event.target.files[0];
           if (file) {
             await supabaseClient.storage.from('apollo-gallery').remove([`uploads/${currentFilePath}`]);
-            const randomName = randomFileName(file.name);
+            const randomName = randomFileName() + '.' + file.name.split('.').pop();
             await supabaseClient.storage.from('apollo-gallery').upload(`uploads/${randomName}`, file);
             mediaModal.hide();
-            offset = 0;
-            gallery.innerHTML = '';
-            loadGallery();
+            await loadGallery();
             alert('Edited successfully!');
           }
         };
         newInput.click();
       });
+
+      sortSelect.addEventListener('change', renderGallery);
 
       loadGallery();
     });
@@ -174,6 +175,10 @@
 
     <div class="d-flex justify-content-between align-items-center mb-3">
       <button class="btn btn-primary" id="uploadButton">Upload Image</button>
+      <select id="sortSelect" class="form-select w-auto">
+        <option value="captured">Captured Date</option>
+        <option value="uploaded">Uploaded Date</option>
+      </select>
       <input type="file" id="fileInput" accept="image/*,video/*" multiple style="display: none;">
     </div>
 
@@ -196,6 +201,7 @@
         </div>
       </div>
     </div>
+
   </div>
 </body>
 
