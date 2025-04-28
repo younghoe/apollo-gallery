@@ -6,22 +6,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Apollo's Storybook</title>
 
-  <!-- Bootstrap CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
   <style>
     body { background-color: #f8f9fa; }
-    img, video { transition: transform 0.3s ease; cursor: pointer; }
-    img:hover, video:hover { transform: scale(1.1); }
+    #gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .media-item {
+      position: relative;
+      overflow: hidden;
+      border-radius: 12px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      cursor: pointer;
+    }
+    .media-item img, .media-item video {
+      width: 100%;
+      height: auto;
+      display: block;
+      transition: transform 0.3s ease;
+    }
+    .media-item:hover img, .media-item:hover video {
+      transform: scale(1.05);
+    }
+    .overlay {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+    }
   </style>
 
-  <!-- Bootstrap Bundle JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" defer></script>
-
-  <!-- Supabase UMD -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@1.35.6/dist/umd/supabase.min.js" defer></script>
 
-  <!-- Custom Script -->
   <script defer>
     document.addEventListener('DOMContentLoaded', async () => {
       const supabaseUrl = "https://ksiyvpbrwkqdnsmthigq.supabase.co";
@@ -40,9 +64,8 @@
 
       let currentFilePath = null;
       let mediaItems = [];
-      let loading = false;
 
-      function randomFileName() {
+      function randomFileName(ext) {
         const now = new Date();
         const y = now.getFullYear();
         const m = String(now.getMonth() + 1).padStart(2, '0');
@@ -50,34 +73,28 @@
         const h = String(now.getHours()).padStart(2, '0');
         const min = String(now.getMinutes()).padStart(2, '0');
         const s = String(now.getSeconds()).padStart(2, '0');
-        return `${y}${m}${d}_${h}${min}${s}`;
+        return `${y}${m}${d}_${h}${min}${s}.${ext}`;
       }
 
-      uploadButton.addEventListener('click', () => {
-        fileInput.click();
-      });
+      uploadButton.addEventListener('click', () => fileInput.click());
 
       fileInput.addEventListener('change', async (event) => {
         const files = Array.from(event.target.files);
         for (const file of files) {
-          const randomName = randomFileName() + '.' + file.name.split('.').pop();
+          const ext = file.name.split('.').pop();
+          const randomName = randomFileName(ext);
           const { error } = await supabaseClient.storage.from('apollo-gallery').upload(`uploads/${randomName}`, file);
-          if (error) {
-            console.error(error);
-            alert('Upload failed!');
-          }
+          if (error) alert('Upload failed!');
         }
         await loadGallery();
         fileInput.value = '';
       });
 
       async function loadGallery() {
-        loading = true;
         scrollLoading.style.display = 'block';
 
-        const { data, error } = await supabaseClient.storage.from('apollo-gallery').list('uploads', { sortBy: { column: 'name', order: 'asc' } });
+        const { data, error } = await supabaseClient.storage.from('apollo-gallery').list('uploads');
         if (error) {
-          console.error(error);
           scrollLoading.style.display = 'none';
           return;
         }
@@ -88,15 +105,14 @@
         });
 
         renderGallery();
-        loading = false;
         scrollLoading.style.display = 'none';
       }
 
       function renderGallery() {
         gallery.innerHTML = '';
         const sortedItems = [...mediaItems];
-
         const sortOption = sortSelect.value;
+
         if (sortOption === 'captured') {
           sortedItems.sort((a, b) => a.name.localeCompare(b.name));
         } else {
@@ -105,18 +121,14 @@
 
         for (const item of sortedItems) {
           const col = document.createElement('div');
-          col.className = 'col';
+          col.className = 'media-item';
           if (item.name.match(/\.(jpg|jpeg|png|gif)$/i)) {
-            col.innerHTML = `<img src="${item.url}" class="img-fluid rounded shadow-sm" data-path="${item.name}">`;
+            col.innerHTML = `<img src="${item.url}" data-path="${item.name}"><div class="overlay">${item.name.slice(0,8)}</div>`;
           } else if (item.name.match(/\.(mp4|mov|webm)$/i)) {
-            col.innerHTML = `<video class="img-fluid rounded shadow-sm" controls data-path="${item.name}"><source src="${item.url}"></video>`;
+            col.innerHTML = `<video controls data-path="${item.name}"><source src="${item.url}"></video><div class="overlay">${item.name.slice(0,8)}</div>`;
           }
+          col.querySelector('img, video').addEventListener('click', () => openModal(item.url, item.name));
           gallery.appendChild(col);
-
-          const media = col.querySelector('img, video');
-          if (media) {
-            media.addEventListener('click', () => openModal(item.url, item.name));
-          }
         }
       }
 
@@ -132,15 +144,10 @@
 
       deleteButton.addEventListener('click', async () => {
         if (currentFilePath) {
-          const { error } = await supabaseClient.storage.from('apollo-gallery').remove([`uploads/${currentFilePath}`]);
-          if (error) {
-            console.error(error);
-            alert('Delete failed!');
-          } else {
-            mediaModal.hide();
-            await loadGallery();
-            alert('Deleted successfully!');
-          }
+          await supabaseClient.storage.from('apollo-gallery').remove([`uploads/${currentFilePath}`]);
+          await loadGallery();
+          mediaModal.hide();
+          alert('Deleted successfully!');
         }
       });
 
@@ -152,10 +159,11 @@
           const file = event.target.files[0];
           if (file) {
             await supabaseClient.storage.from('apollo-gallery').remove([`uploads/${currentFilePath}`]);
-            const randomName = randomFileName() + '.' + file.name.split('.').pop();
+            const ext = file.name.split('.').pop();
+            const randomName = randomFileName(ext);
             await supabaseClient.storage.from('apollo-gallery').upload(`uploads/${randomName}`, file);
-            mediaModal.hide();
             await loadGallery();
+            mediaModal.hide();
             alert('Edited successfully!');
           }
         };
@@ -182,7 +190,7 @@
       <input type="file" id="fileInput" accept="image/*,video/*" multiple style="display: none;">
     </div>
 
-    <div class="row row-cols-2 row-cols-md-4 g-3" id="gallery"></div>
+    <div id="gallery"></div>
 
     <div id="scrollLoading" class="text-center my-3" style="display:none;">
       <div class="spinner-border text-primary" role="status">
@@ -201,7 +209,6 @@
         </div>
       </div>
     </div>
-
   </div>
 </body>
 
