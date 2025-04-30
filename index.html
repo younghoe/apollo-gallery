@@ -101,7 +101,8 @@
 
         mediaItems = data.map(item => {
           const { data: urlData } = supabaseClient.storage.from('apollo-gallery').getPublicUrl(`uploads/${item.name}`);
-          return { name: item.name, url: urlData.publicUrl, uploaded_at: item.created_at };
+          const publicUrl = urlData?.publicUrl || '';
+          return { name: item.name, url: publicUrl, uploaded_at: item.created_at };
         });
 
         scrollLoading.style.display = 'none';
